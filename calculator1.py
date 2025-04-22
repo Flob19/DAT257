@@ -13,6 +13,8 @@ cc_methods = {
 
 def get_results(data):
     dac = calculate_net_zero_cost(data, cc_methods['dac'])
+    biochar = calculate_net_zero_cost(data, cc_methods['biochar'])
+    reforestation = calculate_net_zero_cost(data, cc_methods['reforestation'])
     result_string = (
         f"You selected the method: {dac['method']}, "
         f"with Scope 1: {dac['scope1']} tCO₂e, "
