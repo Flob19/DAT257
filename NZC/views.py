@@ -16,7 +16,50 @@ def pdf(request):
     return render(request, 'pdf.html')
 
 def manual(request):
-    return render(request, 'manual.html', {"scopes" : [1,2,3]})
+    # Check if we have data in the session from a PDF upload
+    prefill_data = {}
+    if 'pdf_data' in request.session:
+        prefill_data = request.session['pdf_data']
+        # Clear the session data after retrieving it
+        del request.session['pdf_data']
+    
+    context = {
+        "scopes": [1, 2, 3],
+        "prefill_data": prefill_data  # Add prefill data to context
+    }
+    
+    return render(request, 'manual.html', context)
+
+def process_pdf(request):
+    if request.method == 'POST' and request.FILES.get('file'):
+        pdf_file = request.FILES.get('file')
+
+        if not pdf_file.name.endswith('.pdf'):
+            messages.error(request, 'File is not PDF type')
+            return redirect('index')
+
+        try:
+            # Use the PDF analyzer to get initial data
+            analysis_results = extract_info_from_pdf(pdf_file)
+            extracted_values = analysis_results['extracted_values']
+            
+            # Store the extracted values in session
+            request.session['pdf_data'] = {
+                'scope1': extracted_values.get('scope1', ''),
+                'scope2': extracted_values.get('scope2', ''),
+                'scope3': extracted_values.get('scope3', ''),
+                'profit': extracted_values.get('profit', '')
+            }
+            
+            # Redirect to manual page with prefilled data
+            return redirect('manual')
+            
+        except Exception as e:
+            messages.error(request, f'Error analyzing PDF: {str(e)}')
+            return redirect('index')
+    else:
+        messages.error(request, 'No file uploaded')
+        return redirect('index')
 
 def results(request):
     context = {}  # Initialize context as empty dictionary
@@ -32,73 +75,7 @@ def results(request):
     }
     
     if request.method == 'POST':
-        if request.FILES.get('file'):
-            pdf_file = request.FILES.get('file')
-
-            if not pdf_file.name.endswith('.pdf'):
-                messages.error(request, 'File is not PDF type')
-                return redirect('index')
-
-            try:
-                # Use the PDF analyzer to get initial data
-                analysis_results = extract_info_from_pdf(pdf_file)
-                extracted_values = analysis_results['extracted_values']
-                
-                # Sätt defaultvärden till '-' om de saknas
-                data = {
-                    'scope1': extracted_values.get('scope1', '-'),
-                    'scope2': extracted_values.get('scope2', '-'),
-                    'scope3': extracted_values.get('scope3', '-'),
-                    'profit': extracted_values.get('profit', '-')
-                }
-
-                # Om alla scope-värden är siffror, kör beräkning och visa tabell
-                if all(isinstance(data[k], int) or (isinstance(data[k], str) and data[k].isdigit()) for k in ['scope1', 'scope2', 'scope3']):
-                    # Konvertera strängar till int om det behövs
-                    for k in ['scope1', 'scope2', 'scope3']:
-                        if isinstance(data[k], str):
-                            data[k] = int(data[k])
-                    # profit kan vara '-' så vi hanterar den separat
-                    if isinstance(data['profit'], str) and data['profit'].isdigit():
-                        data['profit'] = int(data['profit'])
-                    results = get_results(data)
-
-                    # Beräkna kostnader per metod
-                    costs_per_method = {}
-                    price_per_ton = {}
-                    for method, (low, high) in removal_methods.items():
-                        costs_per_method[method] = {
-                            'scope1': (math.ceil(data['scope1'] * low * 10 / 1_000), math.ceil(data['scope1'] * high * 10 / 1_000)),
-                            'scope2': (math.ceil(data['scope2'] * low * 10 / 1_000), math.ceil(data['scope2'] * high * 10 / 1_000)),
-                            'scope3': (math.ceil(data['scope3'] * low * 10 / 1_000), math.ceil(data['scope3'] * high * 10 / 1_000)),
-                            'total': (math.ceil((data['scope1'] + data['scope2'] + data['scope3']) * low * 10 / 1_000),
-                                      math.ceil((data['scope1'] + data['scope2'] + data['scope3']) * high * 10 / 1_000))
-                        }
-                        price_per_ton[method] = (low * 10, high * 10)  # SEK per ton
-                    context = {
-                        'results': results,
-                        'text_sample': analysis_results['text_sample'],
-                        'relevant_contexts': analysis_results['relevant_contexts'],
-                        'costs_per_method': costs_per_method,
-                        'price_per_ton': price_per_ton
-                    }
-                else:
-                    results = (
-                        f"Scope 1: {data['scope1']}\n"
-                        f"Scope 2: {data['scope2']}\n"
-                        f"Scope 3: {data['scope3']}\n"
-                        f"Vinst (MSEK): {data['profit']}"
-                    )
-                    context = {
-                        'results': results,
-                        'text_sample': analysis_results['text_sample'],
-                        'relevant_contexts': analysis_results['relevant_contexts']
-                    }
-            except Exception as e:
-                messages.error(request, f'Error analyzing PDF: {str(e)}')
-                return redirect('index')
-
-        elif request.POST.get('scope1') and request.POST.get('scope2') and request.POST.get('scope3') and request.POST.get('profit'):
+        if request.POST.get('scope1') and request.POST.get('scope2') and request.POST.get('scope3') and request.POST.get('profit'):
             data = {
                 'scope1': int(request.POST.get('scope1')), 
                 'scope2': int(request.POST.get('scope2')), 

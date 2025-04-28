@@ -5,29 +5,48 @@
 
 {% block content %}
     <div class="container-center">
-        <h2>Manual Data Input</h2>
+        {% if prefill_data %}
+            <h2>Data Extracted from PDF</h2>
+            <p>Please review and edit the extracted data if needed:</p>
+        {% else %}
+            <h2>Manual Data Input</h2>
+        {% endif %}
+        
         <form action="results" method="POST" class="container-center">
             {% csrf_token %}
 
             <div class="grid-container">
-                {% for i in scopes%}
                 <div>
-                    <label for="scope{{i}}">Scope {{i}}:</label>
+                    <label for="scope1">Scope 1:</label>
                 </div>
                 <div>
-                    <input type="number" name="scope{{i}}" id="scope{{i}}" required placeholder="enter a number"><br><br>
+                    <input type="number" name="scope1" id="scope1" required placeholder="enter a number" 
+                           value="{{ prefill_data.scope1 }}"><br><br>
                 </div>
-                {% endfor %}
+                <div>
+                    <label for="scope2">Scope 2:</label>
+                </div>
+                <div>
+                    <input type="number" name="scope2" id="scope2" required placeholder="enter a number" 
+                           value="{{ prefill_data.scope2 }}"><br><br>
+                </div>
+                <div>
+                    <label for="scope3">Scope 3:</label>
+                </div>
+                <div>
+                    <input type="number" name="scope3" id="scope3" required placeholder="enter a number" 
+                           value="{{ prefill_data.scope3 }}"><br><br>
+                </div>
             
                 <div>
                     <label for="profit in MSEK">Profit:</label>
                 </div>
                 <div>
-                    <input type="number" name="profit" id="profit" required placeholder="enter a number"><br><br>
+                    <input type="number" name="profit" id="profit" required placeholder="enter a number"
+                           value="{% if prefill_data %}{{ prefill_data.profit }}{% endif %}"><br><br>
                 </div>
             </div>
             
-
             <button type="submit">Submit</button>
         </form>
         <br>
